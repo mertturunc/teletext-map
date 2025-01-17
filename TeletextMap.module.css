@@ -27,17 +27,26 @@
 }
 
 .mapRow {
-  display: flex;
-  justify-content: center;
+  display: block;
+  text-align: center;
   line-height: 1;
+  white-space: pre;
+  font-family: monospace;
+  color: inherit;
 }
 
 .mapChar {
-  font-size: 16px;
-  width: 10px;
-  height: 16px;
+  font-size: 12px;
+  width: 8px;
+  height: 12px;
   display: inline-block;
   text-align: center;
+  transition: color 0.3s ease;
+}
+
+.mapChar span {
+  display: inline-block;
+  transition: color 0.2s ease;
 }
 
 .coordinates {

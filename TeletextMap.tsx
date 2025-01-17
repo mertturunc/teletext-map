@@ -11,19 +11,38 @@ interface MapPosition {
   zoom: number
 }
 
+interface ColoredMapChar {
+  char: string;
+  color: string;
+}
+
 const TeletextMap: React.FC = () => {
   const [position, setPosition] = useState<MapPosition>({
     lat: 41.014266,
     lng: 28.994267,
-    zoom: 14
+    zoom: 10
   })
   const [asciiMap, setAsciiMap] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
-  const mapSize = 400
+  const mapSize = 800
   const characters = ' .:=+*#%@'
-  const mapWidth = 40
-  const mapHeight = 25
+  const mapWidth = 80
+  const mapHeight = 50
+
+  // Add color mapping object
+  const colorMapping: Record<string, string> = {
+    // Water (blue-ish)
+    '#89CFF0': '#0000FF',
+    // Parks/forests (green-ish)
+    '#90EE90': '#00FF00',
+    // Roads (yellow-ish)
+    '#FFFFFF': '#FFFF00',
+    // Buildings (gray-ish)
+    '#808080': '#A9A9A9',
+    // Default
+    'default': '#FFFF00'
+  };
 
   const getMapImage = useCallback(async () => {
     const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/${position.lng},${position.lat},${position.zoom}/${mapSize}x${mapSize}?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}`
@@ -58,23 +77,56 @@ const TeletextMap: React.FC = () => {
       const cellHeight = mapSize / mapHeight
       
       for (let y = 0; y < mapHeight; y++) {
-        let line = ''
+        let line = '';
+        
         for (let x = 0; x < mapWidth; x++) {
-          const data = ctx.getImageData(x * cellWidth, y * cellHeight, cellWidth, cellHeight)
-          let avg = 0
+          const data = ctx.getImageData(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+          let avg = 0;
+          let r = 0, g = 0, b = 0;
           
+          // Calculate average RGB values for the cell
           for (let i = 0; i < data.data.length; i += 4) {
-            const r = data.data[i]
-            const g = data.data[i + 1]
-            const b = data.data[i + 2]
-            avg += (r + g + b) / 3
+            r += data.data[i];
+            g += data.data[i + 1];
+            b += data.data[i + 2];
+            avg += (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 3;
           }
           
-          avg = avg / (data.data.length / 4)
-          const charIndex = Math.floor(avg / 256 * characters.length)
-          line += characters[charIndex]
+          // Get average RGB values
+          const pixelCount = data.data.length / 4;
+          r = Math.round(r / pixelCount);
+          g = Math.round(g / pixelCount);
+          b = Math.round(b / pixelCount);
+          
+          // Create color key from average RGB
+          const colorKey = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+          
+          // Calculate brightness for character selection
+          avg = avg / pixelCount;
+          const charIndex = Math.floor(avg / 256 * characters.length);
+          
+          // Map the color to our teletext palette
+          const color = determineTeletextColor(r, g, b);
+          line += `<span style="color: ${color}">${characters[charIndex]}</span>`;
         }
-        ascii.push(line)
+        ascii.push(line);
+      }
+
+      // Add helper function for color determination
+      function determineTeletextColor(r: number, g: number, b: number): string {
+        // Water detection (more blue than other channels)
+        if (b > r + 20 && b > g + 20) {
+          return colorMapping['#89CFF0'];
+        }
+        // Vegetation detection (more green)
+        if (g > r + 20 && g > b + 20) {
+          return colorMapping['#90EE90'];
+        }
+        // Roads/buildings (grayscale)
+        if (Math.abs(r - g) < 20 && Math.abs(g - b) < 20) {
+          return r > 200 ? colorMapping['#FFFFFF'] : colorMapping['#808080'];
+        }
+        return colorMapping.default;
       }
       
       setAsciiMap(ascii)
@@ -117,11 +169,7 @@ const TeletextMap: React.FC = () => {
           ) : (
             asciiMap.map((row, index) => (
               <div key={index} className={styles.mapRow}>
-                {row.split('').map((char, charIndex) => (
-                  <span key={charIndex} className={styles.mapChar}>
-                    {char}
-                  </span>
-                ))}
+                <div dangerouslySetInnerHTML={{ __html: row }} />
               </div>
             ))
           )}
