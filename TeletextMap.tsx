@@ -11,6 +11,7 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip"
 import { HelpCircle } from 'lucide-react'
+import { MAP_SIZE, MAP_WIDTH, MAP_HEIGHT } from '@/lib/constants'
 
 interface MapPosition {
   lat: number
@@ -28,10 +29,7 @@ const TeletextMap: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [showTooltip, setShowTooltip] = useState(false)
 
-  const mapSize = 800
   const characters = ' .:=+*#%@'
-  const mapWidth = 80
-  const mapHeight = 50
 
   // Add color mapping object
   const colorMapping: Record<string, string> = {
@@ -48,11 +46,11 @@ const TeletextMap: React.FC = () => {
   };
 
   const getMapImage = useCallback(async () => {
-    const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/${position.lng},${position.lat},${position.zoom}/${mapSize}x${mapSize}?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}`
-    
     try {
       setLoading(true)
-      const response = await fetch(url)
+      const response = await fetch(
+        `/api/map?lat=${position.lat}&lng=${position.lng}&zoom=${position.zoom}`
+      )
       const blob = await response.blob()
       
       // Create canvas and draw image
@@ -60,8 +58,8 @@ const TeletextMap: React.FC = () => {
       const ctx = canvas.getContext('2d')
       if (!ctx) return
       
-      canvas.width = mapSize
-      canvas.height = mapSize
+      canvas.width = MAP_SIZE
+      canvas.height = MAP_SIZE
       
       const img = new Image()
       img.crossOrigin = "anonymous"
@@ -76,13 +74,13 @@ const TeletextMap: React.FC = () => {
       
       // Convert to ASCII
       const ascii: string[] = []
-      const cellWidth = mapSize / mapWidth
-      const cellHeight = mapSize / mapHeight
+      const cellWidth = MAP_SIZE / MAP_WIDTH
+      const cellHeight = MAP_SIZE / MAP_HEIGHT
       
-      for (let y = 0; y < mapHeight; y++) {
+      for (let y = 0; y < MAP_HEIGHT; y++) {
         let line = '';
         
-        for (let x = 0; x < mapWidth; x++) {
+        for (let x = 0; x < MAP_WIDTH; x++) {
           const data = ctx.getImageData(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
           let avg = 0;
           let r = 0, g = 0, b = 0;
@@ -133,9 +131,9 @@ const TeletextMap: React.FC = () => {
       }
       
       setAsciiMap(ascii)
-      setLoading(false)
     } catch (error) {
       console.error('Error fetching map:', error)
+    } finally {
       setLoading(false)
     }
   }, [position])
