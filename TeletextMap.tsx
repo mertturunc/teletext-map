@@ -3,14 +3,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import styles from './TeletextMap.module.css'
 import { Button } from "@/components/ui/button"
-import { ZoomIn, ZoomOut, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
-import { 
+import { ZoomIn, ZoomOut, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, HelpCircle } from 'lucide-react'
+import {
   Tooltip,
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
 } from "@/components/ui/tooltip"
-import { HelpCircle } from 'lucide-react'
 import { MAP_SIZE, MAP_WIDTH, MAP_HEIGHT } from '@/lib/constants'
 
 interface MapPosition {
@@ -31,19 +30,25 @@ const TeletextMap: React.FC = () => {
 
   const characters = ' .:=+*#%@'
 
-  // Add color mapping object
+  // Example color mapping
   const colorMapping: Record<string, string> = {
-    // Water (blue-ish)
     '#89CFF0': '#0000FF',
-    // Parks/forests (green-ish)
     '#90EE90': '#00FF00',
-    // Roads (yellow-ish)
     '#FFFFFF': '#FFFF00',
-    // Buildings (gray-ish)
     '#808080': '#A9A9A9',
-    // Default
     'default': '#FFFF00'
-  };
+  }
+
+  // Movement speed utility
+  const getMovementSpeed = (zoom: number): number => {
+    if (zoom < 3) return 5
+    if (zoom < 5) return 3
+    if (zoom < 7) return 1
+    if (zoom < 10) return 0.5
+    if (zoom < 13) return 0.1
+    if (zoom < 16) return 0.05
+    return 0.01
+  }
 
   const getMapImage = useCallback(async () => {
     try {
@@ -52,84 +57,71 @@ const TeletextMap: React.FC = () => {
         `/api/map?lat=${position.lat}&lng=${position.lng}&zoom=${position.zoom}`
       )
       const blob = await response.blob()
-      
-      // Create canvas and draw image
+
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
       if (!ctx) return
-      
+
       canvas.width = MAP_SIZE
       canvas.height = MAP_SIZE
-      
+
       const img = new Image()
       img.crossOrigin = "anonymous"
-      
+
       await new Promise((resolve, reject) => {
         img.onload = resolve
         img.onerror = reject
         img.src = URL.createObjectURL(blob)
       })
-      
+
       ctx.drawImage(img, 0, 0)
-      
-      // Convert to ASCII
+
       const ascii: string[] = []
       const cellWidth = MAP_SIZE / MAP_WIDTH
       const cellHeight = MAP_SIZE / MAP_HEIGHT
-      
+
       for (let y = 0; y < MAP_HEIGHT; y++) {
-        let line = '';
-        
+        let line = ''
+
         for (let x = 0; x < MAP_WIDTH; x++) {
-          const data = ctx.getImageData(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-          let avg = 0;
-          let r = 0, g = 0, b = 0;
-          
-          // Calculate average RGB values for the cell
+          const data = ctx.getImageData(x * cellWidth, y * cellHeight, cellWidth, cellHeight)
+          let avg = 0
+          let r = 0, g = 0, b = 0
+
           for (let i = 0; i < data.data.length; i += 4) {
-            r += data.data[i];
-            g += data.data[i + 1];
-            b += data.data[i + 2];
-            avg += (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 3;
+            r += data.data[i]
+            g += data.data[i + 1]
+            b += data.data[i + 2]
+            avg += (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 3
           }
-          
-          // Get average RGB values
-          const pixelCount = data.data.length / 4;
-          r = Math.round(r / pixelCount);
-          g = Math.round(g / pixelCount);
-          b = Math.round(b / pixelCount);
-          
-          // Create color key from average RGB
-          const colorKey = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
-          
-          // Calculate brightness for character selection
-          avg = avg / pixelCount;
-          const charIndex = Math.floor(avg / 256 * characters.length);
-          
-          // Map the color to our teletext palette
-          const color = determineTeletextColor(r, g, b);
-          line += `<span style="color: ${color}">${characters[charIndex]}</span>`;
+
+          const pixelCount = data.data.length / 4
+          r = Math.round(r / pixelCount)
+          g = Math.round(g / pixelCount)
+          b = Math.round(b / pixelCount)
+          avg = avg / pixelCount
+
+          const charIndex = Math.floor((avg / 256) * characters.length)
+          const color = determineTeletextColor(r, g, b)
+          line += `<span style="color: ${color}">${characters[charIndex]}</span>`
         }
-        ascii.push(line);
+        ascii.push(line)
       }
 
-      // Add helper function for color determination
       function determineTeletextColor(r: number, g: number, b: number): string {
-        // Water detection (more blue than other channels)
+        // Example logic to detect water, vegetation, roads, etc.
         if (b > r + 20 && b > g + 20) {
-          return colorMapping['#89CFF0'];
+          return colorMapping['#89CFF0']
         }
-        // Vegetation detection (more green)
         if (g > r + 20 && g > b + 20) {
-          return colorMapping['#90EE90'];
+          return colorMapping['#90EE90']
         }
-        // Roads/buildings (grayscale)
         if (Math.abs(r - g) < 20 && Math.abs(g - b) < 20) {
-          return r > 200 ? colorMapping['#FFFFFF'] : colorMapping['#808080'];
+          return r > 200 ? colorMapping['#FFFFFF'] : colorMapping['#808080']
         }
-        return colorMapping.default;
+        return colorMapping.default
       }
-      
+
       setAsciiMap(ascii)
     } catch (error) {
       console.error('Error fetching map:', error)
@@ -142,13 +134,12 @@ const TeletextMap: React.FC = () => {
     getMapImage()
   }, [getMapImage])
 
-  // Add keyboard navigation handler
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      const moveAmount = 0.01 // Adjust this value to change movement speed
-      
-      switch(e.key.toLowerCase()) {
-        // Arrow keys and WASD
+      // Decide movement speed based on current zoom
+      const moveAmount = getMovementSpeed(position.zoom)
+
+      switch (e.key.toLowerCase()) {
         case 'arrowup':
         case 'w':
           setPosition(prev => ({ ...prev, lat: prev.lat + moveAmount }))
@@ -165,7 +156,6 @@ const TeletextMap: React.FC = () => {
         case 'd':
           setPosition(prev => ({ ...prev, lng: prev.lng + moveAmount }))
           break
-        // Zoom controls
         case '+':
         case '=':
           setPosition(prev => ({ ...prev, zoom: Math.min(prev.zoom + 0.5, 20) }))
@@ -177,20 +167,19 @@ const TeletextMap: React.FC = () => {
       }
     }
 
-    // Add event listener
     window.addEventListener('keydown', handleKeyPress)
-
-    // Cleanup
     return () => {
       window.removeEventListener('keydown', handleKeyPress)
     }
-  }, []) // Empty dependency array since we don't use any external values
+  }, [position.zoom])
 
+  // Adjusted moveMap function
   const moveMap = (dlat: number, dlng: number) => {
+    const moveAmount = getMovementSpeed(position.zoom)
     setPosition(prev => ({
       ...prev,
-      lat: prev.lat + dlat,
-      lng: prev.lng + dlng
+      lat: prev.lat + (dlat * moveAmount),
+      lng: prev.lng + (dlng * moveAmount)
     }))
   }
 
@@ -221,18 +210,18 @@ const TeletextMap: React.FC = () => {
         </div>
         <div className={styles.controls}>
           <div className={styles.controlsRow}>
-            <Button variant="outline" onClick={() => moveMap(0.01, 0)} size="icon">
+            <Button variant="outline" onClick={() => moveMap(1, 0)} size="icon">
               <ArrowUp className="h-4 w-4 text-black" />
             </Button>
           </div>
           <div className={styles.controlsRow}>
-            <Button variant="outline" onClick={() => moveMap(0, -0.01)} size="icon">
+            <Button variant="outline" onClick={() => moveMap(0, -1)} size="icon">
               <ArrowLeft className="h-4 w-4 text-black" />
             </Button>
-            <Button variant="outline" onClick={() => moveMap(-0.01, 0)} size="icon">
+            <Button variant="outline" onClick={() => moveMap(-1, 0)} size="icon">
               <ArrowDown className="h-4 w-4 text-black" />
             </Button>
-            <Button variant="outline" onClick={() => moveMap(0, 0.01)} size="icon">
+            <Button variant="outline" onClick={() => moveMap(0, 1)} size="icon">
               <ArrowRight className="h-4 w-4 text-black" />
             </Button>
           </div>
@@ -269,4 +258,3 @@ const TeletextMap: React.FC = () => {
 }
 
 export default TeletextMap
-
