@@ -4,16 +4,18 @@ import React, { useState, useEffect, useCallback } from 'react'
 import styles from './TeletextMap.module.css'
 import { Button } from "@/components/ui/button"
 import { ZoomIn, ZoomOut, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
+import { 
+  Tooltip,
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip"
+import { HelpCircle } from 'lucide-react'
 
 interface MapPosition {
   lat: number
   lng: number
   zoom: number
-}
-
-interface ColoredMapChar {
-  char: string;
-  color: string;
 }
 
 const TeletextMap: React.FC = () => {
@@ -24,6 +26,7 @@ const TeletextMap: React.FC = () => {
   })
   const [asciiMap, setAsciiMap] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [showTooltip, setShowTooltip] = useState(false)
 
   const mapSize = 800
   const characters = ' .:=+*#%@'
@@ -243,6 +246,24 @@ const TeletextMap: React.FC = () => {
               <ZoomOut className="h-4 w-4 text-black" />
             </Button>
           </div>
+        </div>
+        <div className={styles.tooltipContainer}>
+          <TooltipProvider>
+            <Tooltip open={showTooltip} onOpenChange={setShowTooltip}>
+              <TooltipTrigger asChild onClick={() => setShowTooltip(!showTooltip)}>
+                <Button variant="ghost" size="icon" className={styles.helpButton}>
+                  <HelpCircle className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className={styles.tooltipContent}>
+                <p>Keyboard Controls:</p>
+                <ul>
+                  <li>Arrow Keys or WASD - Move Map</li>
+                  <li>+ / - Keys - Zoom In/Out</li>
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </div>
