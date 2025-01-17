@@ -141,6 +141,50 @@ const TeletextMap: React.FC = () => {
     getMapImage()
   }, [getMapImage])
 
+  // Add keyboard navigation handler
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      const moveAmount = 0.01 // Adjust this value to change movement speed
+      
+      switch(e.key.toLowerCase()) {
+        // Arrow keys and WASD
+        case 'arrowup':
+        case 'w':
+          setPosition(prev => ({ ...prev, lat: prev.lat + moveAmount }))
+          break
+        case 'arrowdown':
+        case 's':
+          setPosition(prev => ({ ...prev, lat: prev.lat - moveAmount }))
+          break
+        case 'arrowleft':
+        case 'a':
+          setPosition(prev => ({ ...prev, lng: prev.lng - moveAmount }))
+          break
+        case 'arrowright':
+        case 'd':
+          setPosition(prev => ({ ...prev, lng: prev.lng + moveAmount }))
+          break
+        // Zoom controls
+        case '+':
+        case '=':
+          setPosition(prev => ({ ...prev, zoom: Math.min(prev.zoom + 0.5, 20) }))
+          break
+        case '-':
+        case '_':
+          setPosition(prev => ({ ...prev, zoom: Math.max(prev.zoom - 0.5, 1) }))
+          break
+      }
+    }
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyPress)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+    }
+  }, []) // Empty dependency array since we don't use any external values
+
   const moveMap = (dlat: number, dlng: number) => {
     setPosition(prev => ({
       ...prev,
